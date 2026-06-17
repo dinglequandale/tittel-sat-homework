@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { apiGet, apiPost } from '../api.ts'
+import { apiGet, apiPost, apiDelete } from '../api.ts'
 
 interface SetRow { id: string; title: string; updated_at: string; problems: number }
 interface StudentRow { id: string; name: string; token: string }
+interface GroupMember { id: string; name: string }
+interface GroupRow { id: string; name: string; members: GroupMember[] }
 interface AssignmentRow {
   id: string
   title: string | null
@@ -13,7 +15,12 @@ interface AssignmentRow {
   assigned: number
   submitted: number
 }
-interface Overview { sets: SetRow[]; students: StudentRow[]; assignments: AssignmentRow[] }
+interface Overview {
+  sets: SetRow[]
+  students: StudentRow[]
+  assignments: AssignmentRow[]
+  groups: GroupRow[]
+}
 
 interface ProblemStat {
   problemId: string
@@ -69,7 +76,8 @@ export function Tutor() {
     <main className="page tutor">
       <h1>Tutor dashboard</h1>
       <Students base={base} students={ov.students} onChange={reload} />
-      <NewAssignment base={base} sets={ov.sets} students={ov.students} onCreated={reload} />
+      <Groups base={base} groups={ov.groups} students={ov.students} onChange={reload} />
+      <NewAssignment base={base} sets={ov.sets} students={ov.students} groups={ov.groups} onCreated={reload} />
       <Assignments base={base} assignments={ov.assignments} />
     </main>
   )
@@ -79,6 +87,7 @@ export function Tutor() {
 function Students({ base, students, onChange }: { base: string; students: StudentRow[]; onChange: () => void }) {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
+  const [confirm, setConfirm] = useState<StudentRow | null>(null)
 
   async function add() {
     if (!name.trim()) return
@@ -90,6 +99,12 @@ function Students({ base, students, onChange }: { base: string; students: Studen
     } finally {
       setBusy(false)
     }
+  }
+
+  async function remove(s: StudentRow) {
+    await apiDelete(`${base}/students/${s.id}`)
+    setConfirm(null)
+    onChange()
   }
 
   return (
@@ -105,10 +120,25 @@ function Students({ base, students, onChange }: { base: string; students: Studen
         {students.map((s) => (
           <li key={s.id} className="card">
             <div className="card-title">{s.name}</div>
-            <Copyable label="Portal link" url={`${origin()}/s/${s.token}`} />
+            <div className="row">
+              <Copyable label="Portal link" url={`${origin()}/s/${s.token}`} />
+              <button className="danger-btn" title="Delete student" onClick={() => setConfirm(s)}>
+                Delete
+              </button>
+            </div>
           </li>
         ))}
       </ul>
+
+      {confirm && (
+        <ConfirmDialog
+          title={`Delete ${confirm.name}?`}
+          body="This permanently removes the student and all their homework attempts, answers, and results. This can’t be undone."
+          confirmLabel="Delete student"
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => remove(confirm)}
+        />
+      )}
     </section>
   )
 }
@@ -118,11 +148,13 @@ function NewAssignment({
   base,
   sets,
   students,
+  groups,
   onCreated,
 }: {
   base: string
   sets: SetRow[]
   students: StudentRow[]
+  groups: GroupRow[]
   onCreated: () => void
 }) {
   const [setId, setSetId] = useState('')
@@ -133,6 +165,19 @@ function NewAssignment({
   const [links, setLinks] = useState<Array<{ studentName: string; attemptToken: string }> | null>(null)
 
   const chosen = students.filter((s) => picked[s.id]).map((s) => s.id)
+
+  // Whole-group select: on if every member is currently picked.
+  function groupAllPicked(g: GroupRow) {
+    return g.members.length > 0 && g.members.every((m) => picked[m.id])
+  }
+  function toggleGroup(g: GroupRow) {
+    const turnOn = !groupAllPicked(g)
+    setPicked((p) => {
+      const next = { ...p }
+      for (const m of g.members) next[m.id] = turnOn
+      return next
+    })
+  }
 
   async function create() {
     if (!setId || chosen.length === 0) return
@@ -175,6 +220,21 @@ function NewAssignment({
           <input type="number" min={1} value={minutes} onChange={(e) => setMinutes(Number(e.target.value) || 15)} />
         </label>
       </div>
+      {groups.length > 0 && (
+        <div className="group-chips">
+          <span className="muted">Quick-pick a group:</span>
+          {groups.map((g) => (
+            <button
+              key={g.id}
+              className={`chip ${groupAllPicked(g) ? 'on' : ''}`}
+              onClick={() => toggleGroup(g)}
+              disabled={g.members.length === 0}
+            >
+              {g.name} ({g.members.length})
+            </button>
+          ))}
+        </div>
+      )}
       <div className="pick-students">
         <div className="muted">Assign to:</div>
         {students.length === 0 && <span className="muted">Add a student first.</span>}
@@ -342,7 +402,159 @@ function AnalyticsPanel({ base, assignmentId }: { base: string; assignmentId: st
   )
 }
 
+// --- Groups -----------------------------------------------------------------
+function Groups({
+  base,
+  groups,
+  students,
+  onChange,
+}: {
+  base: string
+  groups: GroupRow[]
+  students: StudentRow[]
+  onChange: () => void
+}) {
+  const [name, setName] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [confirm, setConfirm] = useState<GroupRow | null>(null)
+  const [addTo, setAddTo] = useState<Record<string, string>>({}) // groupId -> selected studentId
+
+  async function create() {
+    if (!name.trim()) return
+    setBusy(true)
+    try {
+      await apiPost(`${base}/groups`, { name: name.trim() })
+      setName('')
+      onChange()
+    } finally {
+      setBusy(false)
+    }
+  }
+  async function addMember(groupId: string) {
+    const sid = addTo[groupId]
+    if (!sid) return
+    await apiPost(`${base}/groups/${groupId}/members`, { studentIds: [sid] })
+    setAddTo((a) => ({ ...a, [groupId]: '' }))
+    onChange()
+  }
+  async function removeMember(groupId: string, studentId: string) {
+    await apiDelete(`${base}/groups/${groupId}/members/${studentId}`)
+    onChange()
+  }
+  async function deleteGroup(g: GroupRow) {
+    await apiDelete(`${base}/groups/${g.id}`)
+    setConfirm(null)
+    onChange()
+  }
+
+  return (
+    <section className="panel">
+      <h2>Groups</h2>
+      <p className="muted">Tag students into a class so you can assign to all of them at once.</p>
+      <div className="row">
+        <input placeholder="Group name (e.g. Tuesday 4pm)" value={name} onChange={(e) => setName(e.target.value)} />
+        <button className="nav-btn primary" onClick={create} disabled={busy}>
+          Create group
+        </button>
+      </div>
+
+      <ul className="card-list">
+        {groups.map((g) => {
+          const notIn = students.filter((s) => !g.members.some((m) => m.id === s.id))
+          return (
+            <li key={g.id} className="card column">
+              <div className="row between">
+                <div className="card-title">{g.name}</div>
+                <button className="danger-btn" onClick={() => setConfirm(g)}>
+                  Delete group
+                </button>
+              </div>
+              <div className="member-chips">
+                {g.members.length === 0 && <span className="muted">No members yet.</span>}
+                {g.members.map((m) => (
+                  <span key={m.id} className="member-chip">
+                    {m.name}
+                    <button className="x" title="Remove from group" onClick={() => removeMember(g.id, m.id)}>
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+              {notIn.length > 0 && (
+                <div className="row">
+                  <select value={addTo[g.id] ?? ''} onChange={(e) => setAddTo((a) => ({ ...a, [g.id]: e.target.value }))}>
+                    <option value="">Add student…</option>
+                    {notIn.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  <button className="nav-btn" onClick={() => addMember(g.id)} disabled={!addTo[g.id]}>
+                    Add
+                  </button>
+                </div>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+
+      {confirm && (
+        <ConfirmDialog
+          title={`Delete group "${confirm.name}"?`}
+          body="This removes the group. The students themselves are kept."
+          confirmLabel="Delete group"
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => deleteGroup(confirm)}
+        />
+      )}
+    </section>
+  )
+}
+
 // --- shared -----------------------------------------------------------------
+function ConfirmDialog({
+  title,
+  body,
+  confirmLabel,
+  onCancel,
+  onConfirm,
+}: {
+  title: string
+  body: string
+  confirmLabel: string
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const [busy, setBusy] = useState(false)
+  return (
+    <div className="modal-backdrop" onClick={onCancel}>
+      <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-head">
+          <strong>{title}</strong>
+        </div>
+        <p className="muted">{body}</p>
+        <div className="modal-actions">
+          <button className="nav-btn" onClick={onCancel} disabled={busy}>
+            Cancel
+          </button>
+          <button
+            className="danger-btn solid"
+            disabled={busy}
+            onClick={() => {
+              setBusy(true)
+              Promise.resolve(onConfirm()).finally(() => setBusy(false))
+            }}
+          >
+            {busy ? 'Working…' : confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function Copyable({ label, url }: { label: string; url: string }) {
   const [copied, setCopied] = useState(false)
   return (

@@ -27,6 +27,53 @@ function parse(text: string): Part[] {
   return parts
 }
 
+export interface FigureItem {
+  id: string
+  label?: string
+  svg: string
+}
+
+// Accepts the current ordered-array shape and tolerates any legacy
+// { figId: svg } map so old DB rows still render.
+export function normalizeFigures(raw: unknown): FigureItem[] {
+  if (Array.isArray(raw)) {
+    return (raw as FigureItem[]).filter((f) => f && f.svg)
+  }
+  if (raw && typeof raw === 'object') {
+    return Object.entries(raw as Record<string, string>).map(([id, svg]) => ({ id, svg }))
+  }
+  return []
+}
+
+export function figuresToMap(figs: FigureItem[]): Record<string, string> {
+  return Object.fromEntries(figs.map((f) => [f.id, f.svg]))
+}
+
+// Remove `![figId]` references from prose (figures render in their own block),
+// tidying any space left before punctuation.
+export function stripFigureRefs(text: string): string {
+  return (text ?? '')
+    .replace(/!\[[^\]]+\]/g, '')
+    .replace(/\s+([.,;:?!])/g, '$1')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+}
+
+// A problem's diagrams, stacked above the stem (with optional captions).
+export function ProblemFigures({ figures }: { figures: FigureItem[] }) {
+  if (!figures.length) return null
+  return (
+    <div className="problem-figures">
+      {figures.map((f, i) => (
+        <figure key={f.id || i} className="problem-figure">
+          <div className="figure-svg" dangerouslySetInnerHTML={{ __html: f.svg }} />
+          {f.label && <figcaption>{f.label}</figcaption>}
+        </figure>
+      ))}
+    </div>
+  )
+}
+
 export function RichText({
   text,
   figures,

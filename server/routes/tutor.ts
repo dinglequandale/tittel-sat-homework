@@ -16,7 +16,7 @@ tutorRouter.use((req, res, next) => {
 
 // --- Overview ---------------------------------------------------------------
 tutorRouter.get('/overview', async (_req, res) => {
-  const [sets, students, assignments] = await Promise.all([
+  const [sets, students, assignments, groups] = await Promise.all([
     pool.query(
       `select ps.id, ps.title, ps.updated_at,
               (select count(*) from problems p where p.set_id = ps.id) as problems
@@ -30,8 +30,26 @@ tutorRouter.get('/overview', async (_req, res) => {
                  and a.status in ('submitted','expired')) as submitted
          from assignments asg order by asg.created_at desc`,
     ),
+    pool.query(
+      `select g.id, g.name,
+              coalesce(
+                json_agg(json_build_object('id', s.id, 'name', s.name) order by s.name)
+                  filter (where s.id is not null),
+                '[]'
+              ) as members
+         from groups g
+         left join group_members gm on gm.group_id = g.id
+         left join students s on s.id = gm.student_id
+        group by g.id
+        order by g.name`,
+    ),
   ])
-  res.json({ sets: sets.rows, students: students.rows, assignments: assignments.rows })
+  res.json({
+    sets: sets.rows,
+    students: students.rows,
+    assignments: assignments.rows,
+    groups: groups.rows,
+  })
 })
 
 // --- Sets -------------------------------------------------------------------
@@ -53,6 +71,46 @@ tutorRouter.post('/students', async (req, res) => {
     [name, token],
   )
   res.json(rows[0])
+})
+
+// Delete a student. Cascades to their group memberships, assignments, attempts
+// and responses (all FK'd on delete cascade).
+tutorRouter.delete('/students/:id', async (req, res) => {
+  await pool.query(`delete from students where id = $1`, [req.params.id])
+  res.json({ ok: true })
+})
+
+// --- Groups -----------------------------------------------------------------
+tutorRouter.post('/groups', async (req, res) => {
+  const name = typeof req.body?.name === 'string' ? req.body.name.trim() : ''
+  if (!name) return res.status(400).json({ error: 'name required' })
+  const { rows } = await pool.query(`insert into groups (name) values ($1) returning id, name`, [name])
+  res.json(rows[0])
+})
+
+tutorRouter.delete('/groups/:id', async (req, res) => {
+  await pool.query(`delete from groups where id = $1`, [req.params.id])
+  res.json({ ok: true })
+})
+
+// Add one or more students to a group.
+tutorRouter.post('/groups/:id/members', async (req, res) => {
+  const ids = Array.isArray(req.body?.studentIds) ? req.body.studentIds : []
+  for (const sid of ids) {
+    await pool.query(
+      `insert into group_members (group_id, student_id) values ($1, $2) on conflict do nothing`,
+      [req.params.id, sid],
+    )
+  }
+  res.json({ ok: true })
+})
+
+tutorRouter.delete('/groups/:id/members/:studentId', async (req, res) => {
+  await pool.query(`delete from group_members where group_id = $1 and student_id = $2`, [
+    req.params.id,
+    req.params.studentId,
+  ])
+  res.json({ ok: true })
 })
 
 // --- Assignments ------------------------------------------------------------
@@ -191,10 +249,19 @@ tutorRouter.post('/lesson-export', async (req, res) => {
       type: p.type,
       stem: p.stem,
       choices: (p.choices as { id: string; content: string }[]) ?? [],
-      figures: (p.figures as Record<string, string>) ?? {},
+      figures: normalizeFigures(p.figures),
       explanation: p.explanation,
     })),
     title,
   )
   res.json(doc)
 })
+
+// Tolerate both the current array shape and any legacy { figId: svg } rows.
+function normalizeFigures(raw: unknown): { id: string; label?: string; svg: string }[] {
+  if (Array.isArray(raw)) return raw.filter((f) => f && f.svg)
+  if (raw && typeof raw === 'object') {
+    return Object.entries(raw as Record<string, string>).map(([id, svg]) => ({ id, svg }))
+  }
+  return []
+}

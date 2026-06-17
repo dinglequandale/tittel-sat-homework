@@ -77,3 +77,18 @@ create table if not exists responses (
   updated_at        timestamptz not null default now(),
   unique (attempt_id, problem_id)
 );
+
+-- Student groups (e.g. a class) — for tagging students collectively so a whole
+-- group can be assigned homework at once. Many-to-many: a student may be in
+-- several groups, and 1-on-1 students are simply in none.
+create table if not exists groups (
+  id         uuid primary key default gen_random_uuid(),
+  name       text not null,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists group_members (
+  group_id   uuid not null references groups(id) on delete cascade,
+  student_id uuid not null references students(id) on delete cascade,
+  primary key (group_id, student_id)
+);

@@ -4,14 +4,14 @@
 //   client/src/lesson/schema.ts -> { title, pages: [{ label, blocks: [...] }] }
 // Each block is { type:'latex'|'text'|'image', content?|src?, kind, spacingAfter, maxWidth }.
 
-import type { Choice } from '../shared/format.ts'
+import type { Choice, RenderedFigure } from '../shared/format.ts'
 
 interface ProblemForExport {
   ordinal: number
   type: 'mc' | 'grid'
   stem: string
   choices: Choice[]
-  figures: Record<string, string> // figId -> svg
+  figures: RenderedFigure[] // ordered, with optional labels
   explanation?: string | null
 }
 
@@ -35,7 +35,7 @@ function stripFigRefs(text: string): { text: string; refs: string[] } {
     refs.push(id)
     return ''
   })
-  return { text: out.replace(/\s{2,}/g, ' ').trim(), refs }
+  return { text: out.replace(/\s+([.,;:?!])/g, '$1').replace(/\s{2,}/g, ' ').trim(), refs }
 }
 
 function svgDataUri(svg: string): string {
@@ -56,13 +56,15 @@ export function buildLessonReview(problems: ProblemForExport[], title = 'Homewor
       maxWidth: MAX_WIDTH,
     })
 
-    const { text, refs } = stripFigRefs(p.stem)
-    segments.push({ type: 'latex', kind: 'body', content: text, spacingAfter: TIGHT, maxWidth: MAX_WIDTH })
-
-    for (const figId of refs) {
-      const svg = p.figures?.[figId]
-      if (svg) segments.push({ type: 'image', kind: 'body', src: svgDataUri(svg), spacingAfter: TIGHT, maxWidth: MAX_WIDTH })
+    // Figures go ABOVE the stem (matching the runner's layout).
+    for (const fig of p.figures ?? []) {
+      if (fig.svg) {
+        segments.push({ type: 'image', kind: 'body', src: svgDataUri(fig.svg), spacingAfter: TIGHT, maxWidth: MAX_WIDTH })
+      }
     }
+
+    const { text } = stripFigRefs(p.stem)
+    segments.push({ type: 'latex', kind: 'body', content: text, spacingAfter: TIGHT, maxWidth: MAX_WIDTH })
 
     if (p.type === 'mc' && p.choices?.length) {
       const lines = p.choices

@@ -32,7 +32,7 @@ const doc = buildLessonReview(
         { id: 'A', content: '$1$' },
         { id: 'B', content: '$2$' },
       ],
-      figures: { f1: '<svg xmlns="http://www.w3.org/2000/svg"></svg>' },
+      figures: [{ id: 'f1', label: 'Figure 1', svg: '<svg xmlns="http://www.w3.org/2000/svg"></svg>' }],
       explanation: null,
     },
   ],

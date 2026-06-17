@@ -19,3 +19,7 @@ export function apiPost<T>(url: string, body?: unknown): Promise<T> {
     body: JSON.stringify(body ?? {}),
   }).then((r) => parse<T>(r))
 }
+
+export function apiDelete<T>(url: string): Promise<T> {
+  return fetch(url, { method: 'DELETE' }).then((r) => parse<T>(r))
+}

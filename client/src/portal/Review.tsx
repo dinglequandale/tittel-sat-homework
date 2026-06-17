@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { apiGet } from '../api.ts'
-import { RichText } from '../RichText.tsx'
+import { RichText, ProblemFigures, normalizeFigures, figuresToMap, stripFigureRefs } from '../RichText.tsx'
 
 interface RChoice { id: string; content: string }
 interface ReviewProblem {
@@ -13,7 +13,7 @@ interface ReviewProblem {
   correct: string | null
   answers: string[]
   explanation: string | null
-  figures: Record<string, string>
+  figures: unknown
 }
 interface ReviewResponse {
   problem_id: string
@@ -61,6 +61,8 @@ export function Review() {
         const r = byId.get(p.id)
         const correct = !!r?.is_correct
         const yourAnswer = r?.answer ?? null
+        const figs = normalizeFigures(p.figures)
+        const figMap = figuresToMap(figs)
         return (
           <article key={p.id} className={`review-q ${correct ? 'correct' : 'incorrect'}`}>
             <div className="rq-head">
@@ -68,8 +70,9 @@ export function Review() {
               <span className={`badge ${correct ? 'ok' : 'bad'}`}>{correct ? 'Correct' : 'Incorrect'}</span>
               {r && <span className="muted">{Math.round(r.time_spent_ms / 1000)}s</span>}
             </div>
+            <ProblemFigures figures={figs} />
             <div className="q-stem">
-              <RichText text={p.stem} figures={p.figures} />
+              <RichText text={stripFigureRefs(p.stem)} figures={figMap} />
             </div>
 
             {p.type === 'mc' ? (
@@ -84,7 +87,7 @@ export function Review() {
                     >
                       <span className="choice-letter">{c.id}</span>
                       <span className="choice-content">
-                        <RichText text={c.content} figures={p.figures} />
+                        <RichText text={stripFigureRefs(c.content)} figures={figMap} />
                       </span>
                       {isCorrect && <span className="tag ok">correct</span>}
                       {isYours && <span className="tag">your answer</span>}
@@ -106,7 +109,7 @@ export function Review() {
             {p.explanation && (
               <div className="explanation">
                 <strong>Explanation. </strong>
-                <RichText text={p.explanation} figures={p.figures} />
+                <RichText text={stripFigureRefs(p.explanation)} figures={figMap} />
               </div>
             )}
           </article>

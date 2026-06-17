@@ -22,10 +22,22 @@ export interface Choice {
 export interface Figure {
   id: string // referenced inline as ![id]
   latex: string // e.g. "\\begin{tikzpicture}...\\end{tikzpicture}"
+  /** Optional caption shown under the figure (e.g. "Figure 1"). */
+  label?: string
   /** Extra LaTeX packages this figure needs, e.g. ["pgfplots"]. */
   packages?: string[]
   /** Extra TikZ libraries, e.g. ["arrows.meta", "calc"]. */
   libraries?: string[]
+}
+
+/**
+ * A figure after rendering, as stored on the problem and sent to the client.
+ * Ordered (authoring order) so the runner can stack diagrams above the stem.
+ */
+export interface RenderedFigure {
+  id: string
+  label?: string
+  svg: string
 }
 
 export interface AuthoredProblem {

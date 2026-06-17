@@ -36,13 +36,13 @@ async function main() {
 
   // Render figures up front (serial — node-tikzjax can't run concurrently).
   console.log(`Rendering figures for "${set.title}" — ${set.problems.length} problem(s)…`)
-  const figsByProblem: Record<string, Record<string, string>> = {}
+  const figsByProblem: Record<string, Awaited<ReturnType<typeof renderFigures>>> = {}
   let figCount = 0
   for (const p of set.problems) {
     try {
-      const map = await renderFigures(p.figures)
-      figsByProblem[p.id] = map
-      figCount += Object.keys(map).length
+      const figs = await renderFigures(p.figures)
+      figsByProblem[p.id] = figs
+      figCount += figs.length
     } catch (e) {
       return fail(`Figure render failed in problem "${p.id}": ${(e as Error).message}`)
     }
@@ -52,7 +52,7 @@ async function main() {
   if (dryRun) {
     console.log('Dry run — nothing written. Would upsert:')
     set.problems.forEach((p, i) =>
-      console.log(`  ${i + 1}. [${p.type}] ${set.id}:${p.id}  figures=${Object.keys(figsByProblem[p.id]).length}`),
+      console.log(`  ${i + 1}. [${p.type}] ${set.id}:${p.id}  figures=${figsByProblem[p.id].length}`),
     )
     await pool.end()
     return
@@ -90,7 +90,7 @@ async function main() {
           p.correct ?? null,
           JSON.stringify(p.answers ?? []),
           p.explanation ?? null,
-          JSON.stringify(figsByProblem[p.id] ?? {}),
+          JSON.stringify(figsByProblem[p.id] ?? []),
         ],
       )
     }

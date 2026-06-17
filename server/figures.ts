@@ -1,5 +1,5 @@
 import pkg from 'node-tikzjax'
-import type { Figure } from '../shared/format.ts'
+import type { Figure, RenderedFigure } from '../shared/format.ts'
 
 // node-tikzjax ships CJS: the high-level wrapper is `exports.default`, which in
 // Node ESM lands at `.default`. (The named `tex` export is a lower-level
@@ -25,12 +25,13 @@ export async function renderFigureSvg(fig: Figure): Promise<string> {
 }
 
 /**
- * Render every figure to a { figId: svg } map. Renders SERIALLY — node-tikzjax
- * must not run concurrently — and de-dups identical figures so a repeated
- * diagram compiles only once.
+ * Render every figure to an ordered array (authoring order preserved so the
+ * runner can stack diagrams above the stem). Renders SERIALLY — node-tikzjax
+ * must not run concurrently — and de-dups identical LaTeX so a repeated diagram
+ * compiles only once.
  */
-export async function renderFigures(figures: Figure[] = []): Promise<Record<string, string>> {
-  const out: Record<string, string> = {}
+export async function renderFigures(figures: Figure[] = []): Promise<RenderedFigure[]> {
+  const out: RenderedFigure[] = []
   const cache = new Map<string, string>()
   for (const fig of figures) {
     const key = JSON.stringify([fig.latex, fig.packages ?? null, fig.libraries ?? null])
@@ -39,7 +40,7 @@ export async function renderFigures(figures: Figure[] = []): Promise<Record<stri
       svg = await renderFigureSvg(fig)
       cache.set(key, svg)
     }
-    out[fig.id] = svg
+    out.push({ id: fig.id, label: fig.label, svg })
   }
   return out
 }

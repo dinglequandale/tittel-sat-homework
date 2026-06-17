@@ -22,6 +22,7 @@
       "figures": [
         {
           "id": "fig1",
+          "label": "Figure 1",
           "latex": "\\begin{tikzpicture}[scale=0.6]\\draw[->] (-1,0)--(5,0) node[right]{$x$};\\draw[->] (0,-1)--(0,5) node[above]{$y$};\\draw[thick] (0,1)--(4,5);\\fill (0,1) circle (2pt) node[left]{$(0,1)$};\\fill (4,5) circle (2pt) node[right]{$(4,5)$};\\end{tikzpicture}"
         }
       ],

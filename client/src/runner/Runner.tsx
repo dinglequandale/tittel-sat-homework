@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { apiGet, apiPost } from '../api.ts'
-import { RichText } from '../RichText.tsx'
+import { RichText, ProblemFigures, normalizeFigures, figuresToMap, stripFigureRefs } from '../RichText.tsx'
 import { Calculator } from './Calculator.tsx'
 import { Reference } from './Reference.tsx'
 
@@ -12,7 +12,7 @@ interface RProblem {
   type: 'mc' | 'grid'
   stem: string
   choices: RChoice[]
-  figures: Record<string, string>
+  figures: unknown
 }
 interface SavedResponse { problem_id: string; answer: string | null; marked_for_review: boolean }
 interface AttemptPayload {
@@ -172,6 +172,8 @@ export function Runner() {
 
   const problems = data.problems
   const p = problems[idx]
+  const figs = normalizeFigures(p.figures)
+  const figMap = figuresToMap(figs)
   const answeredCount = problems.filter((q) => answers[q.id] != null && answers[q.id] !== '').length
   const unanswered = problems.length - answeredCount
 
@@ -242,8 +244,10 @@ export function Runner() {
             </button>
           </div>
 
+          <ProblemFigures figures={figs} />
+
           <div className="q-stem">
-            <RichText text={p.stem} figures={p.figures} />
+            <RichText text={stripFigureRefs(p.stem)} figures={figMap} />
           </div>
 
           {p.type === 'mc' ? (
@@ -256,7 +260,7 @@ export function Runner() {
                     <button className="choice-main" onClick={() => selectChoice(c.id)}>
                       <span className="choice-letter">{c.id}</span>
                       <span className="choice-content">
-                        <RichText text={c.content} figures={p.figures} />
+                        <RichText text={stripFigureRefs(c.content)} figures={figMap} />
                       </span>
                     </button>
                     <button
