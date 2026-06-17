@@ -136,16 +136,18 @@ so don't bother with it.)*
 
 ### pgfplots example (function graph)
 
+⚠️ **The `axis` environment MUST be wrapped in `\begin{tikzpicture}…\end{tikzpicture}`** —
+it is *not* implied. Also add `\pgfplotsset{compat=1.16}` (silences a
+compatibility warning that can otherwise abort the render).
+
 ```json
 {
   "id": "graph1",
   "label": "Figure 1",
   "packages": ["pgfplots"],
-  "latex": "\\begin{axis}[axis lines=middle, xlabel=$x$, ylabel=$y$, xmin=-3, xmax=3, ymin=-1, ymax=9, width=7cm, height=7cm]\\addplot[thick, domain=-3:3, samples=80]{x^2};\\end{axis}"
+  "latex": "\\begin{tikzpicture}\\pgfplotsset{compat=1.16}\\begin{axis}[axis lines=middle, xlabel=$x$, ylabel=$y$, xmin=-3, xmax=3, ymin=-1, ymax=9, width=7cm, height=7cm]\\addplot[thick, domain=-3:3, samples=80]{x^2};\\end{axis}\\end{tikzpicture}"
 }
 ```
-*(pgfplots' `axis` environment goes directly in `latex`; the surrounding
-`tikzpicture` is implied.)*
 
 ---
 

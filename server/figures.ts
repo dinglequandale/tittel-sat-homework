@@ -17,7 +17,12 @@ export async function renderFigureSvg(fig: Figure): Promise<string> {
   if (fig.libraries?.length) {
     options.tikzLibraries = fig.libraries.join(',')
   }
-  const svg = await tex2svg(source, options)
+  let svg: string
+  try {
+    svg = await tex2svg(source, options)
+  } catch (e) {
+    throw new Error(`figure "${fig.id}" failed to compile — check its TikZ/LaTeX (${(e as Error).message})`)
+  }
   if (!svg || !svg.trimStart().startsWith('<svg')) {
     throw new Error(`figure "${fig.id}" produced no SVG`)
   }

@@ -28,7 +28,12 @@ export function renderSet(set: ProblemSet): Promise<RenderedSet> {
     const figsByProblem: Record<string, RenderedFigure[]> = {}
     let figCount = 0
     for (const p of set.problems) {
-      const figs = await renderFigures(p.figures)
+      let figs: RenderedFigure[]
+      try {
+        figs = await renderFigures(p.figures)
+      } catch (e) {
+        throw new Error(`Problem "${p.id}": ${(e as Error).message}`)
+      }
       figsByProblem[p.id] = figs
       figCount += figs.length
     }
