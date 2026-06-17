@@ -1,3 +1,4 @@
+import './env.ts'
 import { Pool } from 'pg'
 
 // Single shared connection pool. DATABASE_URL is the Supabase Postgres URI.

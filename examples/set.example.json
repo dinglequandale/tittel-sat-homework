@@ -12,8 +12,8 @@
         { "id": "C", "content": "$(x-8)(x+5)$" },
         { "id": "D", "content": "$(x-10)(x+4)$" }
       ],
-      "correct": "C",
-      "explanation": "Find factors of $-40$ that sum to $3$: $-5$ and $8$ give $-40$ and $3$. So $x^2+3x-40=(x-5)(x+8)$. Wait — check: $(x-5)(x+8)=x^2+3x-40$. The matching listed option is $(x-8)(x+5)=x^2-3x-40$, so re-derive carefully when authoring real sets."
+      "correct": "B",
+      "explanation": "Find two numbers with product $-40$ and sum $+3$: those are $-5$ and $+8$. So $x^2+3x-40=(x-5)(x+8)$, which is choice B."
     },
     {
       "id": "q2",

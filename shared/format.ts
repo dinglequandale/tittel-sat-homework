@@ -22,6 +22,10 @@ export interface Choice {
 export interface Figure {
   id: string // referenced inline as ![id]
   latex: string // e.g. "\\begin{tikzpicture}...\\end{tikzpicture}"
+  /** Extra LaTeX packages this figure needs, e.g. ["pgfplots"]. */
+  packages?: string[]
+  /** Extra TikZ libraries, e.g. ["arrows.meta", "calc"]. */
+  libraries?: string[]
 }
 
 export interface AuthoredProblem {
