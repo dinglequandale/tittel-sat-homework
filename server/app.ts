@@ -1,8 +1,12 @@
+import 'express-async-errors'
 import path from 'node:path'
 import fs from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import express from 'express'
 import { pool } from './db.ts'
+import { attemptRouter } from './routes/attempt.ts'
+import { portalRouter } from './routes/portal.ts'
+import { tutorRouter } from './routes/tutor.ts'
 
 // The configured Express app — defined separately from the listen() bootstrap
 // (server/index.ts) so it can also be imported by a serverless handler if we
@@ -24,6 +28,20 @@ app.get('/api/health', async (_req, res) => {
   } catch (err) {
     res.status(200).json({ ok: true, db: false, error: (err as Error).message })
   }
+})
+
+// Feature routers. Async errors are funneled to one JSON error handler below.
+app.use('/api/attempt', attemptRouter)
+app.use('/api/portal', portalRouter)
+app.use('/api/tutor/:secret', tutorRouter)
+
+// Any unmatched /api route is a 404 (not the SPA fallback HTML).
+app.use('/api', (_req, res) => res.status(404).json({ error: 'not found' }))
+
+// Central error handler so a thrown/rejected route returns JSON, not an HTML 500.
+app.use('/api', (err: unknown, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  console.error('[api error]', err)
+  res.status(500).json({ error: (err as Error)?.message ?? 'internal error' })
 })
 
 // ---------------------------------------------------------------------------

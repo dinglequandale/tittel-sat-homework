@@ -12,10 +12,12 @@
     "start": "tsx server/index.ts",
     "migrate": "tsx server/migrate.ts",
     "push": "tsx server/push.ts",
+    "test": "tsx test/units.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "express": "^4.19.2",
+    "express-async-errors": "^3.1.1",
     "katex": "^0.17.0",
     "nanoid": "^5.0.7",
     "node-tikzjax": "^1.0.5",
