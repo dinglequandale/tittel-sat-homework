@@ -185,3 +185,7 @@ input, select { font: inherit; }
 .member-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
 .member-chip { background: var(--soft); border-radius: 14px; padding: 4px 6px 4px 10px; font-size: 0.85rem; display: inline-flex; align-items: center; gap: 6px; }
 .member-chip .x { background: none; border: none; color: var(--muted); font-size: 1rem; line-height: 1; padding: 0; }
+
+.upload-ok { color: var(--ok); font-weight: 600; }
+.upload-errors { color: var(--bad); margin: 8px 0; padding-left: 18px; }
+.upload-errors li { margin: 2px 0; }

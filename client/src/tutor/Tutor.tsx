@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { apiGet, apiPost, apiDelete } from '../api.ts'
 
@@ -75,11 +75,118 @@ export function Tutor() {
   return (
     <main className="page tutor">
       <h1>Tutor dashboard</h1>
+      <ProblemSets base={base} sets={ov.sets} onChange={reload} />
       <Students base={base} students={ov.students} onChange={reload} />
       <Groups base={base} groups={ov.groups} students={ov.students} onChange={reload} />
       <NewAssignment base={base} sets={ov.sets} students={ov.students} groups={ov.groups} onCreated={reload} />
       <Assignments base={base} assignments={ov.assignments} />
     </main>
+  )
+}
+
+// --- Problem sets (upload) --------------------------------------------------
+function ProblemSets({ base, sets, onChange }: { base: string; sets: SetRow[]; onChange: () => void }) {
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+  const [errors, setErrors] = useState<string[]>([])
+  const [confirm, setConfirm] = useState<SetRow | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function upload(file: File) {
+    setBusy(true)
+    setResult(null)
+    setErrors([])
+    try {
+      const text = await file.text()
+      try {
+        JSON.parse(text) // fail fast on malformed JSON before hitting the server
+      } catch (e) {
+        setErrors([`Not valid JSON: ${(e as Error).message}`])
+        return
+      }
+      const res = await fetch(`${base}/problem-sets`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: text,
+      })
+      const body = await res.json()
+      if (!res.ok) {
+        setErrors(body.errors ?? [body.error ?? 'Upload failed'])
+        return
+      }
+      setResult(`${body.updated ? 'Updated' : 'Created'} “${body.title}” — ${body.problems} problems, ${body.figures} figures.`)
+      onChange()
+    } finally {
+      setBusy(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
+
+  async function remove(s: SetRow) {
+    setConfirm(null)
+    try {
+      await apiDelete(`${base}/problem-sets/${encodeURIComponent(s.id)}`)
+      onChange()
+    } catch (e) {
+      setErrors([(e as Error).message])
+    }
+  }
+
+  return (
+    <section className="panel">
+      <h2>Problem sets</h2>
+      <p className="muted">
+        Upload a problem-set <code>.json</code> (figures are rendered on the server). Re-uploading the
+        same <code>id</code> updates it in place.
+      </p>
+      <div className="row">
+        <input
+          ref={fileRef}
+          type="file"
+          accept="application/json,.json"
+          disabled={busy}
+          onChange={(e) => {
+            const f = e.target.files?.[0]
+            if (f) void upload(f)
+          }}
+        />
+        {busy && <span className="muted">Rendering figures…</span>}
+      </div>
+      {result && <p className="upload-ok">✓ {result}</p>}
+      {errors.length > 0 && (
+        <ul className="upload-errors">
+          {errors.map((e, i) => (
+            <li key={i}>{e}</li>
+          ))}
+        </ul>
+      )}
+
+      <ul className="card-list">
+        {sets.map((s) => (
+          <li key={s.id} className="card">
+            <div>
+              <div className="card-title">{s.title}</div>
+              <div className="muted">
+                <code>{s.id}</code> · {s.problems} questions
+              </div>
+            </div>
+            <button className="danger-btn" onClick={() => setConfirm(s)}>
+              Delete
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {confirm && (
+        <ConfirmDialog
+          title={`Delete set "${confirm.title}"?`}
+          body="This removes the problem set and its problems. Blocked if any student has already answered them."
+          confirmLabel="Delete set"
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => remove(confirm)}
+        />
+      )}
+    </section>
   )
 }
 

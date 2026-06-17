@@ -2,6 +2,8 @@ import { Router } from 'express'
 import { pool } from '../db.ts'
 import { newToken } from '../tokens.ts'
 import { buildLessonReview } from '../lessonExport.ts'
+import { ingestProblemSet, IngestError } from '../ingest.ts'
+import type { ProblemSet } from '../../shared/format.ts'
 
 // All routes are gated by the shared TUTOR_SECRET embedded in the URL.
 export const tutorRouter = Router({ mergeParams: true })
@@ -59,6 +61,39 @@ tutorRouter.get('/sets/:setId/problems', async (req, res) => {
     [req.params.setId],
   )
   res.json({ problems: rows })
+})
+
+// Upload a problem-set JSON from the dashboard: validate, render figures
+// (server-side TikZ -> SVG), and upsert. Same path as the `npm run push` CLI.
+tutorRouter.post('/problem-sets', async (req, res) => {
+  const set = req.body
+  if (!set || typeof set !== 'object') {
+    return res.status(400).json({ error: 'Send the problem-set JSON as the request body.' })
+  }
+  try {
+    const result = await ingestProblemSet(set as ProblemSet)
+    res.json(result)
+  } catch (e) {
+    if (e instanceof IngestError) {
+      return res.status(400).json({ error: 'Validation failed', errors: e.errors })
+    }
+    // A figure that fails to compile surfaces here as a generic error.
+    return res.status(400).json({ error: (e as Error).message })
+  }
+})
+
+tutorRouter.delete('/problem-sets/:setId', async (req, res) => {
+  // Block deletion if any attempt responses reference this set's problems.
+  const { rows } = await pool.query(
+    `select 1 from responses r join problems p on p.id = r.problem_id
+      where p.set_id = $1 limit 1`,
+    [req.params.setId],
+  )
+  if (rows.length) {
+    return res.status(409).json({ error: 'This set has student results — it can’t be deleted.' })
+  }
+  await pool.query(`delete from problem_sets where id = $1`, [req.params.setId])
+  res.json({ ok: true })
 })
 
 // --- Students ---------------------------------------------------------------
