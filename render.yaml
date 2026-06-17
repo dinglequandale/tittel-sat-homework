@@ -1,0 +1,20 @@
+# One Node web service: serves the React/Vite client AND the Express API.
+#
+# Deploy: push this repo to GitHub, then on Render choose
+#   New +  ->  Blueprint  ->  pick this repo. Render reads this file.
+services:
+  - type: web
+    name: tittel-sat-homework
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Supabase Postgres URI — set in the Render dashboard, never committed.
+      - key: DATABASE_URL
+        sync: false
+      # Shared secret gating the tutor dashboard at /t/<TUTOR_SECRET>.
+      - key: TUTOR_SECRET
+        sync: false

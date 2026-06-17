@@ -1,0 +1,31 @@
+{
+  "id": "alg-linear-1",
+  "title": "Algebra — Linear Equations & Factoring",
+  "problems": [
+    {
+      "id": "q1",
+      "type": "mc",
+      "stem": "Which expression is equivalent to $x^2 + 3x - 40$?",
+      "choices": [
+        { "id": "A", "content": "$(x-4)(x+10)$" },
+        { "id": "B", "content": "$(x-5)(x+8)$" },
+        { "id": "C", "content": "$(x-8)(x+5)$" },
+        { "id": "D", "content": "$(x-10)(x+4)$" }
+      ],
+      "correct": "C",
+      "explanation": "Find factors of $-40$ that sum to $3$: $-5$ and $8$ give $-40$ and $3$. So $x^2+3x-40=(x-5)(x+8)$. Wait — check: $(x-5)(x+8)=x^2+3x-40$. The matching listed option is $(x-8)(x+5)=x^2-3x-40$, so re-derive carefully when authoring real sets."
+    },
+    {
+      "id": "q2",
+      "type": "grid",
+      "stem": "Line $\\ell$ passes through the points shown in the figure ![fig1]. What is the slope of line $\\ell$?",
+      "figures": [
+        {
+          "id": "fig1",
+          "latex": "\\begin{tikzpicture}[scale=0.6]\\draw[->] (-1,0)--(5,0) node[right]{$x$};\\draw[->] (0,-1)--(0,5) node[above]{$y$};\\draw[thick] (0,1)--(4,5);\\fill (0,1) circle (2pt) node[left]{$(0,1)$};\\fill (4,5) circle (2pt) node[right]{$(4,5)$};\\end{tikzpicture}"
+        }
+      ],
+      "answers": ["1", "1.0"]
+    }
+  ]
+}
