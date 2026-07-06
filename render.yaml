@@ -8,7 +8,9 @@ services:
     runtime: node
     plan: free
     buildCommand: npm install && npm run build
-    startCommand: npm start
+    # Schema is idempotent (create-if-not-exists / alter-if-not-exists), so it's
+    # safe to reapply it on every boot — keeps prod in sync without a manual step.
+    startCommand: npm run migrate && npm start
     envVars:
       - key: NODE_VERSION
         value: "22"
