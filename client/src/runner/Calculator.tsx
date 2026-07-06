@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 
 // Lazy-load the real Desmos graphing calculator on first open (not at page load).
 // Same approach as the whiteboard. Falls back to a message if the script blocks.
@@ -25,9 +25,67 @@ function loadDesmos(): Promise<DesmosGlobal> {
   return desmosPromise
 }
 
+// The floating panel's position/size, in CSS pixels (top-left anchored).
+type Geom = { x: number; y: number; w: number; h: number }
+
+// Opens large, on the left, leaving room for the question panel to shift right.
+function defaultGeom(): Geom {
+  const w = Math.min(640, window.innerWidth * 0.46)
+  const h = Math.min(700, window.innerHeight - 150)
+  return { x: 24, y: 84, w, h }
+}
+
+// Keep at least a sliver on-screen so the panel can always be grabbed back.
+function clampPos(g: Geom): Geom {
+  const margin = 40
+  return {
+    ...g,
+    x: Math.min(Math.max(g.x, margin - g.w), window.innerWidth - margin),
+    y: Math.min(Math.max(g.y, 0), window.innerHeight - margin),
+  }
+}
+
 export function Calculator({ onClose }: { onClose: () => void }) {
   const host = useRef<HTMLDivElement>(null)
+  const panelRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState(false)
+  const [geom, setGeom] = useState<Geom>(defaultGeom)
+  const geomRef = useRef(geom)
+  geomRef.current = geom
+
+  // Capture native resize-handle drags (CSS `resize: both`) back into geom.
+  useEffect(() => {
+    const el = panelRef.current
+    if (!el) return
+    const ro = new ResizeObserver(() => {
+      const w = el.offsetWidth
+      const h = el.offsetHeight
+      const g = geomRef.current
+      if (w !== g.w || h !== g.h) setGeom({ ...g, w, h })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  // Drag the panel by its header.
+  const startDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return
+    e.preventDefault()
+    const el = e.currentTarget
+    el.setPointerCapture(e.pointerId)
+    const startX = e.clientX
+    const startY = e.clientY
+    const base = geomRef.current
+    const onMove = (ev: PointerEvent) =>
+      setGeom(clampPos({ ...base, x: base.x + (ev.clientX - startX), y: base.y + (ev.clientY - startY) }))
+    const onUp = () => {
+      el.releasePointerCapture?.(e.pointerId)
+      el.removeEventListener('pointermove', onMove)
+      el.removeEventListener('pointerup', onUp)
+    }
+    el.addEventListener('pointermove', onMove)
+    el.addEventListener('pointerup', onUp)
+  }
 
   useEffect(() => {
     let calc: { destroy: () => void } | null = null
@@ -49,8 +107,14 @@ export function Calculator({ onClose }: { onClose: () => void }) {
   }, [])
 
   return (
-    <div className="calc-panel" role="dialog" aria-label="Calculator">
-      <div className="calc-head">
+    <div
+      ref={panelRef}
+      className="calc-panel"
+      role="dialog"
+      aria-label="Calculator"
+      style={{ left: geom.x, top: geom.y, width: geom.w, height: geom.h, right: 'auto', bottom: 'auto' }}
+    >
+      <div className="calc-head" onPointerDown={startDrag}>
         <span>Calculator</span>
         <button className="icon-btn" onClick={onClose} aria-label="Close calculator">
           ×

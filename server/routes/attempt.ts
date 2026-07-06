@@ -73,12 +73,6 @@ attemptRouter.get('/:token', async (req, res) => {
     at.started_at = new Date().toISOString()
   }
 
-  if (at.status === 'in_progress' && remainingSeconds(at) <= 0) {
-    await gradeAttempt(at.id, at.set_id)
-    await pool.query(`update attempts set status = 'expired', submitted_at = now() where id = $1`, [at.id])
-    at.status = 'expired'
-  }
-
   const { rows: problems } = await pool.query(
     `select id, ordinal, type, stem, choices, figures
        from problems where set_id = $1 order by ordinal`,
@@ -106,7 +100,6 @@ attemptRouter.post('/:token/response', async (req, res) => {
   const at = await loadAttempt(req.params.token)
   if (!at) return res.status(404).json({ error: 'not found' })
   if (at.status !== 'in_progress') return res.status(409).json({ error: 'not in progress' })
-  if (remainingSeconds(at) < -5) return res.status(409).json({ error: 'time expired' })
 
   const { problemId, answer, markedForReview, timeSpentMsDelta, changed } = req.body ?? {}
   if (typeof problemId !== 'string') return res.status(400).json({ error: 'problemId required' })

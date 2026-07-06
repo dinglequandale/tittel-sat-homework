@@ -56,7 +56,6 @@ export function Runner() {
   const markedRef = useRef(marked)
   markedRef.current = marked
   const timeRef = useRef<{ problemId: string; at: number } | null>(null)
-  const autoRef = useRef(false)
   const gridTimer = useRef<number | undefined>(undefined)
 
   // Initial load.
@@ -120,15 +119,7 @@ export function Runner() {
     return () => window.clearInterval(h)
   }, [data])
 
-  // Auto-submit when the clock runs out.
-  useEffect(() => {
-    if (!data || data.submitted) return
-    if (remaining <= 0 && !autoRef.current) {
-      autoRef.current = true
-      void doSubmit()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [remaining, data])
+  const timeUp = remaining <= 0
 
   async function doSubmit() {
     setSubmitting(true)
@@ -220,7 +211,7 @@ export function Runner() {
       <header className="runner-head">
         <div className="rh-left">{data.assignmentTitle || 'SAT Homework'}</div>
         <div className="rh-center">
-          {!timerHidden && <span className="timer">{mmss(remaining)}</span>}
+          {!timerHidden && <span className="timer">{timeUp ? "Time's up" : mmss(remaining)}</span>}
           <button className="text-btn" onClick={() => setTimerHidden((h) => !h)}>
             {timerHidden ? 'Show' : 'Hide'}
           </button>
@@ -235,7 +226,16 @@ export function Runner() {
         </div>
       </header>
 
-      <main className="runner-body">
+      {timeUp && (
+        <div className="time-up-banner">
+          Time's up! Finish whenever you're ready — your answers are already saved.
+          <button className="nav-btn primary" onClick={() => setConfirmOpen(true)}>
+            Finish
+          </button>
+        </div>
+      )}
+
+      <main className={`runner-body ${calcOpen ? 'with-calc' : ''}`}>
         <article className="question">
           <div className="q-toolbar">
             <span className="q-number">{idx + 1}</span>
