@@ -79,7 +79,7 @@ export function Tutor() {
       <Students base={base} students={ov.students} onChange={reload} />
       <Groups base={base} groups={ov.groups} students={ov.students} onChange={reload} />
       <NewAssignment base={base} sets={ov.sets} students={ov.students} groups={ov.groups} onCreated={reload} />
-      <Assignments base={base} assignments={ov.assignments} />
+      <Assignments base={base} assignments={ov.assignments} onChange={reload} />
     </main>
   )
 }
@@ -378,8 +378,23 @@ function NewAssignment({
 }
 
 // --- Assignments + analytics ------------------------------------------------
-function Assignments({ base, assignments }: { base: string; assignments: AssignmentRow[] }) {
+function Assignments({
+  base,
+  assignments,
+  onChange,
+}: {
+  base: string
+  assignments: AssignmentRow[]
+  onChange: () => void
+}) {
   const [openId, setOpenId] = useState<string | null>(null)
+  const [confirm, setConfirm] = useState<AssignmentRow | null>(null)
+
+  async function remove(a: AssignmentRow) {
+    await apiDelete(`${base}/assignments/${a.id}`)
+    setConfirm(null)
+    onChange()
+  }
 
   return (
     <section className="panel">
@@ -395,14 +410,29 @@ function Assignments({ base, assignments }: { base: string; assignments: Assignm
                   {a.submitted}/{a.assigned} submitted · {Math.round(a.time_limit_sec / 60)} min
                 </div>
               </div>
-              <button className="nav-btn" onClick={() => setOpenId(openId === a.id ? null : a.id)}>
-                {openId === a.id ? 'Hide' : 'Analytics'}
-              </button>
+              <div className="row">
+                <button className="nav-btn" onClick={() => setOpenId(openId === a.id ? null : a.id)}>
+                  {openId === a.id ? 'Hide' : 'Analytics'}
+                </button>
+                <button className="danger-btn" title="Remove from dashboard" onClick={() => setConfirm(a)}>
+                  Delete
+                </button>
+              </div>
             </div>
             {openId === a.id && <AnalyticsPanel base={base} assignmentId={a.id} />}
           </li>
         ))}
       </ul>
+
+      {confirm && (
+        <ConfirmDialog
+          title={`Remove "${confirm.title || confirm.set_id}" from your dashboard?`}
+          body="This only removes it from your view — assigned students keep it in their own portal and their results are untouched."
+          confirmLabel="Remove"
+          onCancel={() => setConfirm(null)}
+          onConfirm={() => remove(confirm)}
+        />
+      )}
     </section>
   )
 }

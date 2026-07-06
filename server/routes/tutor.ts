@@ -30,7 +30,7 @@ tutorRouter.get('/overview', async (_req, res) => {
               (select count(*) from assignment_students x where x.assignment_id = asg.id) as assigned,
               (select count(*) from attempts a where a.assignment_id = asg.id
                  and a.status in ('submitted','expired')) as submitted
-         from assignments asg order by asg.created_at desc`,
+         from assignments asg where not asg.hidden_from_tutor order by asg.created_at desc`,
     ),
     pool.query(
       `select g.id, g.name,
@@ -80,6 +80,13 @@ tutorRouter.post('/problem-sets', async (req, res) => {
     // A figure that fails to compile surfaces here as a generic error.
     return res.status(400).json({ error: (e as Error).message })
   }
+})
+
+// Remove an assignment from the tutor's own dashboard only. The student keeps
+// seeing it in their portal — this just sets a flag, no rows are deleted.
+tutorRouter.delete('/assignments/:id', async (req, res) => {
+  await pool.query(`update assignments set hidden_from_tutor = true where id = $1`, [req.params.id])
+  res.json({ ok: true })
 })
 
 tutorRouter.delete('/problem-sets/:setId', async (req, res) => {

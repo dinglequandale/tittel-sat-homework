@@ -42,6 +42,9 @@ create table if not exists assignments (
   time_limit_sec int  not null default 900, -- standardized 15 min
   created_at     timestamptz not null default now()
 );
+-- Lets a tutor remove an assignment from their own dashboard without touching
+-- the student's portal view (which queries independently and ignores this).
+alter table assignments add column if not exists hidden_from_tutor boolean not null default false;
 
 create table if not exists assignment_students (
   assignment_id uuid not null references assignments(id) on delete cascade,
